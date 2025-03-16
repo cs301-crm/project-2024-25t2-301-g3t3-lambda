@@ -1,15 +1,41 @@
 import json
 import boto3
-import psycopg2
-from psycopg2 import sql
+import psycopg
+from psycopg import sql
 from datetime import datetime
+import os
+import base64
 
 S3_BUCKET = "scrooge-bank-g3t3-sftp-bucket"
-DB_HOST = os.getenv("DB_HOST")
-DB_NAME = os.getenv("DB_NAME")
-DB_USER = "test"
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_PORT = "5342"
+# DB_HOST = "aurora-cluster.cluster-cdpu7odorewb.ap-southeast-1.rds.amazonaws.com"
+# DB_NAME = "user_db" 
+# DB_USER = "test"
+# DB_PASSWORD = "os.getenv("DB_PASSWORD")"
+# DB_PORT = "5342"
+
+def get_secret():
+
+    secret_name = "rds!cluster-a8789063-e4dc-4842-8b3c-fcd2058922e4" # changes everytime we terraform destroy/apply
+    region_name = "ap-southeast-1"
+
+    # Create a Secrets Manager client
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
+
+    try:
+        get_secret_value_response = client.get_secret_value(
+            SecretId=secret_name
+        )
+    except Exception as e:
+        raise e
+
+    secret = get_secret_value_response['SecretString']
+
+    # Your code goes here.
+    return secret
 
 # Initialize AWS services
 s3_client = boto3.client("s3")
@@ -66,6 +92,13 @@ def _write_to_db(rows):
 
 def lambda_handler(event, context):
     """ Lambda entry point """
+    secret = get_secret()
+    DB_HOST = secret['host']
+    DB_NAME = "user_db"
+    DB_USER = secret['username']
+    DB_PASSWORD = secret['password']
+    DB_PORT = "5342"
+
     try:
         # Get the S3 object key from event
         for record in event["Records"]:
