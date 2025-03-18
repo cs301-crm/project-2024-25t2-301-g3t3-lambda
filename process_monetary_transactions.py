@@ -1,7 +1,7 @@
 import json
 import boto3
-import psycopg
-from psycopg import sql
+import psycopg2
+from psycopg2 import sql
 from datetime import datetime
 import os
 import base64
@@ -10,11 +10,10 @@ S3_BUCKET = "scrooge-bank-g3t3-sftp-bucket"
 # DB_HOST = "aurora-cluster.cluster-cdpu7odorewb.ap-southeast-1.rds.amazonaws.com"
 # DB_NAME = "user_db" 
 # DB_USER = "test"
-# DB_PASSWORD = "os.getenv("DB_PASSWORD")"
+# DB_PASSWORD = os.getenv('DB_PASSWORD')
 # DB_PORT = "5342"
 
 def get_secret():
-
     secret_name = "rds!cluster-a8789063-e4dc-4842-8b3c-fcd2058922e4" # changes everytime we terraform destroy/apply
     region_name = "ap-southeast-1"
 
