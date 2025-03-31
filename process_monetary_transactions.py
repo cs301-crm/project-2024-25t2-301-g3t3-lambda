@@ -81,6 +81,10 @@ def _write_to_db(rows, db_config):
     except Exception as e:
         print(f"Database error: {e}")
         return {"statusCode": 500, "body": str(e)}
+    
+    finally:
+        if conn:
+            conn.close()
 
 def lambda_handler(event, context):
     #print("Received event: " + json.dumps(event, indent=2))    
