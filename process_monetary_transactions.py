@@ -14,7 +14,7 @@ S3_BUCKET = "scrooge-bank-g3t3-sftp-bucket"
 # DB_PORT = "5342"
 
 def get_secret():
-    secret_name = "rds!cluster-a8789063-e4dc-4842-8b3c-fcd2058922e4" # changes everytime we terraform destroy/apply
+    secret_name = "huh" # changes everytime we terraform destroy/apply
     region_name = "ap-southeast-1"
 
     # Create a Secrets Manager client
