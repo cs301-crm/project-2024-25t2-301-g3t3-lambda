@@ -4,17 +4,12 @@ import psycopg2
 from psycopg2 import sql
 from datetime import datetime
 import os
-import base64
+import urllib.parse
 
-S3_BUCKET = "scrooge-bank-g3t3-sftp-bucket"
-# DB_HOST = "aurora-cluster.cluster-cdpu7odorewb.ap-southeast-1.rds.amazonaws.com"
-# DB_NAME = "user_db" 
-# DB_USER = "test"
-# DB_PASSWORD = os.getenv('DB_PASSWORD')
-# DB_PORT = "5342"
+s3 = boto3.client('s3')
 
 def get_secret():
-    secret_name = "huh" # changes everytime we terraform destroy/apply
+    secret_name = os.getenv("DB_SECRET_ARN")
     region_name = "ap-southeast-1"
 
     # Create a Secrets Manager client
@@ -36,9 +31,6 @@ def get_secret():
     # Your code goes here.
     return secret
 
-# Initialize AWS services
-s3_client = boto3.client("s3")
-
 def _process_file_content(content):
     """ Custom logic for processing json file content """
     content = json.loads(content)
@@ -47,15 +39,16 @@ def _process_file_content(content):
         c['timestamp'] = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%SZ")
     return content
 
-def _write_to_db(rows):
+def _write_to_db(rows, db_config):
     """ Insert data into the PostgreSQL RDS database """
     try:
         conn = psycopg2.connect(
-            host=DB_HOST,
-            database=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            port=DB_PORT
+            host=db_config['host'],
+            database="user_db",
+            user=db_config['username'],
+            password=db_config['password'],
+            port="5432"
+
         )
         cursor = conn.cursor()
         
@@ -87,35 +80,29 @@ def _write_to_db(rows):
 
     except Exception as e:
         print(f"Database error: {e}")
-        raise
+        return {"statusCode": 500, "body": str(e)}
 
 def lambda_handler(event, context):
-    """ Lambda entry point """
-    secret = get_secret()
-    DB_HOST = secret['host']
-    DB_NAME = "user_db"
-    DB_USER = secret['username']
-    DB_PASSWORD = secret['password']
-    DB_PORT = "5342"
+    #print("Received event: " + json.dumps(event, indent=2))    
+
+    bucket = event['Records'][0]['s3']['bucket']['name']
+    key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'], encoding='utf-8')
 
     try:
-        # Get the S3 object key from event
-        for record in event["Records"]:
-            s3_key = record["s3"]["object"]["key"]
-            print(f"Processing file: {s3_key}")
+        response = s3.get_object(Bucket=bucket, Key = key)
+        file_content = response["Body"].read().decode('utf-8')
+    except Exception as e:
+        print(f"S3 error: {e}")
+        return {"statusCode": 500, "body": str(e)}
 
-            # Read file from S3
-            response = s3_client.get_object(Bucket=S3_BUCKET, Key=s3_key)
-            file_content = response["Body"].read().decode('utf-8')
-            
-            # Process and write to DB
-            rows = _process_file_content(file_content)
-            _write_to_db(rows)
+    try:
+        rows = _process_file_content(file_content)
 
-            print(f"Finished processing {s3_key}")
+        db_config = json.loads(get_secret())
+        _write_to_db(rows, db_config)
 
-        return {"statusCode": 200, "body": "Success"}
-    
     except Exception as e:
         print(f"Lambda error: {e}")
         return {"statusCode": 500, "body": str(e)}
+
+    return
